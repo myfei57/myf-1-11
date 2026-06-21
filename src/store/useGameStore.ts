@@ -170,6 +170,19 @@ export const useGameStore = create<Store>()(
           return { success: false, cost: 0, restored: 0 };
         }
 
+        const installedParts = Object.values(robot.parts).filter(Boolean) as Part[];
+        const severelyDamagedParts = installedParts.filter((p) =>
+          state.isSeverelyDamaged(p)
+        );
+        if (severelyDamagedParts.length > 0) {
+          return {
+            success: false,
+            cost: 0,
+            restored: 0,
+            message: `存在 ${severelyDamagedParts.length} 个严重损坏零件，请先进行显微手术处理病灶`,
+          };
+        }
+
         const durabilityNeeded = robot.maxDurability - robot.durability;
         const cost = durabilityNeeded * repairRules.materialCostPerPoint;
 
@@ -187,9 +200,21 @@ export const useGameStore = create<Store>()(
         let restored = 0;
         if (success) {
           restored = durabilityNeeded;
+
+          const updatedParts = { ...robot.parts };
+          (Object.keys(updatedParts) as PartType[]).forEach((partType) => {
+            const part = updatedParts[partType];
+            if (part) {
+              const restoredPart = { ...part, durability: part.maxDurability };
+              updatedParts[partType] = restoredPart;
+              state.updatePart(part.id, { durability: part.maxDurability });
+            }
+          });
+
           state.updateRobot(robotId, {
             durability: robot.maxDurability,
             repairCount: robot.repairCount + 1,
+            parts: updatedParts,
           });
         } else {
           state.updateRobot(robotId, {
@@ -229,8 +254,36 @@ export const useGameStore = create<Store>()(
           durabilityLoss += state.config.overloadRules.durabilityPenalty;
         }
 
-        const newDurability = clamp(robot.durability - durabilityLoss, 0, robot.maxDurability);
-        state.updateRobot(robotId, { durability: newDurability });
+        const installedParts = Object.entries(robot.parts)
+          .filter((entry): entry is [PartType, Part] => entry[1] !== null);
+
+        const updatedParts = { ...robot.parts };
+        let minPartDurability = robot.maxDurability;
+
+        if (installedParts.length > 0) {
+          const lossPerPart = Math.ceil(durabilityLoss / installedParts.length);
+          const extraLossParts = Math.floor(Math.random() * installedParts.length);
+
+          installedParts.forEach(([partType, part], idx) => {
+            const partLoss =
+              idx === extraLossParts ? lossPerPart + (durabilityLoss % installedParts.length) : lossPerPart;
+            const newPartDurability = clamp(part.durability - partLoss, 0, part.maxDurability);
+
+            updatedParts[partType] = {
+              ...part,
+              durability: newPartDurability,
+            };
+
+            state.updatePart(part.id, { durability: newPartDurability });
+
+            if (newPartDurability < minPartDurability) {
+              minPartDurability = newPartDurability;
+            }
+          });
+        }
+
+        const newDurability = clamp(minPartDurability, 0, robot.maxDurability);
+        state.updateRobot(robotId, { durability: newDurability, parts: updatedParts });
 
         let rewards = { credits: 0, materials: 0 };
         if (success) {
@@ -573,7 +626,33 @@ export const useGameStore = create<Store>()(
                 0,
                 originalPart.maxDurability
               );
+
+              const updatedPart = {
+                ...originalPart,
+                durability: newDurability,
+              };
+
               state.updatePart(originalPart.id, { durability: newDurability });
+
+              const updatedParts = {
+                ...robot.parts,
+                [partType]: updatedPart,
+              };
+
+              const installedParts = Object.values(updatedParts).filter(
+                Boolean
+              ) as Part[];
+              let newRobotDurability = robot.maxDurability;
+              for (const p of installedParts) {
+                if (p.durability < newRobotDurability) {
+                  newRobotDurability = p.durability;
+                }
+              }
+
+              state.updateRobot(session.robotId, {
+                parts: updatedParts,
+                durability: newRobotDurability,
+              });
             }
           }
         }
@@ -631,7 +710,33 @@ export const useGameStore = create<Store>()(
                   0,
                   originalPart.maxDurability
                 );
+
+                const updatedPart = {
+                  ...originalPart,
+                  durability: newDurability,
+                };
+
                 state.updatePart(originalPart.id, { durability: newDurability });
+
+                const updatedParts = {
+                  ...robot.parts,
+                  [partType]: updatedPart,
+                };
+
+                const installedParts = Object.values(updatedParts).filter(
+                  Boolean
+                ) as Part[];
+                let newRobotDurability = robot.maxDurability;
+                for (const p of installedParts) {
+                  if (p.durability < newRobotDurability) {
+                    newRobotDurability = p.durability;
+                  }
+                }
+
+                state.updateRobot(session.robotId, {
+                  parts: updatedParts,
+                  durability: newRobotDurability,
+                });
               }
             }
           }

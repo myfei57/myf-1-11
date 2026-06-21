@@ -270,7 +270,7 @@ export interface GameActions {
   setSelectedPart: (slot: PartType, part: Part | null) => void;
   clearSelectedParts: () => void;
   recyclePart: (partId: string) => void;
-  repairRobot: (robotId: string) => { success: boolean; cost: number; restored: number };
+  repairRobot: (robotId: string) => { success: boolean; cost: number; restored: number; message?: string };
   executeMission: (robotId: string, missionId: string) => MissionRecord;
   calculateRobotStats: (parts: Record<PartType, Part | null>) => {
     totalWeight: number;

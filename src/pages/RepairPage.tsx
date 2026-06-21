@@ -21,6 +21,7 @@ import { RobotCard } from '../components/RobotCard';
 import { Modal } from '../components/Modal';
 import { StatBar } from '../components/StatBar';
 import { PART_TYPE_NAMES } from '../data/defaultConfig';
+import type { Part } from '../types';
 
 export function RepairPage() {
   const navigate = useNavigate();
@@ -39,6 +40,7 @@ export function RepairPage() {
     success: boolean;
     cost: number;
     restored: number;
+    message?: string;
   } | null>(null);
   const [isRepairing, setIsRepairing] = useState(false);
 
@@ -58,12 +60,17 @@ export function RepairPage() {
       0.1,
       repairRules.baseSuccessRate - robot.repairCount * repairRules.degradeRate
     );
+
+    const installedParts = Object.values(robot.parts).filter(Boolean) as Part[];
+    const hasSeverelyDamagedParts = installedParts.some((p) => isSeverelyDamaged(p));
+
     const canRepair =
       robot.repairCount < repairRules.maxRepairs &&
       durabilityNeeded > 0 &&
-      materials >= cost;
+      materials >= cost &&
+      !hasSeverelyDamagedParts;
 
-    return { durabilityNeeded, cost, successRate, canRepair };
+    return { durabilityNeeded, cost, successRate, canRepair, hasSeverelyDamagedParts };
   };
 
   const handleRepair = async () => {
@@ -370,29 +377,56 @@ export function RepairPage() {
                     className={`mb-6 p-4 rounded-xl border ${
                       repairResult.success
                         ? 'bg-neon-green/10 border-neon-green/30'
+                        : repairResult.message
+                        ? 'bg-neon-orange/10 border-neon-orange/30'
                         : 'bg-neon-red/10 border-neon-red/30'
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       {repairResult.success ? (
                         <CheckCircle className="w-6 h-6 text-neon-green flex-shrink-0" />
+                      ) : repairResult.message ? (
+                        <AlertTriangle className="w-6 h-6 text-neon-orange flex-shrink-0" />
                       ) : (
                         <XCircle className="w-6 h-6 text-neon-red flex-shrink-0" />
                       )}
                       <div>
                         <p
                           className={`font-bold ${
-                            repairResult.success ? 'text-neon-green' : 'text-neon-red'
+                            repairResult.success
+                              ? 'text-neon-green'
+                              : repairResult.message
+                              ? 'text-neon-orange'
+                              : 'text-neon-red'
                           }`}
                         >
-                          {repairResult.success ? '维修成功！' : '维修失败'}
+                          {repairResult.success
+                            ? '维修成功！'
+                            : repairResult.message
+                            ? '无法维修'
+                            : '维修失败'}
                         </p>
                         <p className="text-sm text-white/60">
-                          消耗材料 {repairResult.cost}，
-                          {repairResult.success
-                            ? `恢复耐久 ${repairResult.restored} 点`
-                            : '耐久度未恢复'}
+                          {repairResult.message || (
+                            <>
+                              消耗材料 {repairResult.cost}，
+                              {repairResult.success
+                                ? `恢复耐久 ${repairResult.restored} 点`
+                                : '耐久度未恢复'}
+                            </>
+                          )}
                         </p>
+                        {repairResult.message && (
+                          <button
+                            onClick={() =>
+                              selectedRobotId && navigate(`/surgery/${selectedRobotId}`)
+                            }
+                            className="mt-2 px-4 py-2 rounded-lg bg-neon-orange/20 text-neon-orange text-sm font-medium hover:bg-neon-orange/30 transition-colors"
+                          >
+                            <Crosshair className="w-4 h-4 inline mr-1" />
+                            前往微型手术台
+                          </button>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -408,7 +442,11 @@ export function RepairPage() {
                   }`}
                 >
                   <Wrench className="w-5 h-5 inline mr-2" />
-                  {isRepairing ? '维修中...' : '开始维修'}
+                  {isRepairing
+                    ? '维修中...'
+                    : getRepairInfo(selectedRobot).hasSeverelyDamagedParts
+                    ? '存在严重损坏零件，需先进行显微手术'
+                    : '开始维修'}
                 </button>
               </motion.div>
             ) : (
