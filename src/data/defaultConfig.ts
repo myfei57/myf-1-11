@@ -88,6 +88,15 @@ export const DEFAULT_CONFIG: GameConfig = {
     degradeRate: 0.1,
     maxRepairs: 5,
     materialCostPerPoint: 2,
+    severeDamageThreshold: 0.3,
+  },
+  microSurgery: {
+    lesionSevereDamageChance: 0.7,
+    maxLesionsPerPart: 4,
+    minLesionsPerPart: 2,
+    wrongOrderDamageMultiplier: 1.5,
+    correctStepRecoveryBonus: 0.1,
+    baseMaterialCost: 15,
   },
   missionWeights: {
     transport: {
@@ -280,3 +289,157 @@ export const BLIND_BOX_PRICES: Record<string, number> = {
 
 export const INITIAL_CREDITS = 500;
 export const INITIAL_MATERIALS = 100;
+
+import type { SurgeryTool, SurgeryMaterial, LesionType } from '../types';
+
+export const SURGERY_TOOLS: SurgeryTool[] = [
+  {
+    type: 'laser_welder',
+    name: '激光焊接器',
+    description: '高精度激光焊接，用于修复金属裂纹',
+    icon: 'Flame',
+    targetLesions: ['crack'],
+  },
+  {
+    type: 'circuit_tester',
+    name: '电路测试仪',
+    description: '检测和定位短路点，找出故障位置',
+    icon: 'Activity',
+    targetLesions: ['short_circuit'],
+  },
+  {
+    type: 'soldering_iron',
+    name: '微型电烙铁',
+    description: '用于重新焊接松动的电路连接点',
+    icon: 'Zap',
+    targetLesions: ['loose'],
+  },
+  {
+    type: 'ultrasonic_cleaner',
+    name: '超声波清洁器',
+    description: '高频振动清除微粒和污染物',
+    icon: 'Waves',
+    targetLesions: ['contamination'],
+  },
+  {
+    type: 'microscope',
+    name: '高倍显微镜',
+    description: '辅助观察微型病灶，提高操作精度',
+    icon: 'Search',
+    targetLesions: ['crack', 'short_circuit', 'loose', 'contamination'],
+  },
+  {
+    type: 'anti_static_cloth',
+    name: '防静电布',
+    description: '清除静电和表面灰尘，防止二次污染',
+    icon: 'Wind',
+    targetLesions: ['contamination'],
+  },
+];
+
+export const SURGERY_MATERIALS: SurgeryMaterial[] = [
+  {
+    type: 'nano_adhesive',
+    name: '纳米粘合剂',
+    description: '分子级粘合材料，用于填充和固定裂纹',
+    icon: 'Droplet',
+    cost: 8,
+    targetLesions: ['crack'],
+  },
+  {
+    type: 'conductive_gel',
+    name: '导电凝胶',
+    description: '恢复电路导电性，修复短路损坏',
+    icon: 'Zap',
+    cost: 12,
+    targetLesions: ['short_circuit'],
+  },
+  {
+    type: 'reinforcement_plate',
+    name: '微型加固板',
+    description: '在裂纹处增加结构强度，防止再次断裂',
+    icon: 'Shield',
+    cost: 15,
+    targetLesions: ['crack'],
+  },
+  {
+    type: 'cleaning_solution',
+    name: '精密清洗液',
+    description: '溶解顽固污染物，不留残渣',
+    icon: 'Beaker',
+    cost: 6,
+    targetLesions: ['contamination'],
+  },
+  {
+    type: 'flux',
+    name: '助焊剂',
+    description: '提高焊接质量，确保连接牢固',
+    icon: 'Sparkles',
+    cost: 5,
+    targetLesions: ['loose', 'short_circuit'],
+  },
+  {
+    type: 'insulation_tape',
+    name: '绝缘胶带',
+    description: '隔离裸露线路，防止再次短路',
+    icon: 'Bandage',
+    cost: 4,
+    targetLesions: ['short_circuit', 'loose'],
+  },
+];
+
+export const LESION_CONFIG: Record<LesionType, {
+  name: string;
+  description: string;
+  color: string;
+  icon: string;
+  defaultTool: SurgeryTool['type'];
+  defaultMaterial: SurgeryMaterial['type'];
+  damageOnFail: number;
+}> = {
+  crack: {
+    name: '结构裂纹',
+    description: '零件外壳出现细微裂纹，如不及时处理可能导致完全断裂',
+    color: '#ef4444',
+    icon: 'AlertTriangle',
+    defaultTool: 'laser_welder',
+    defaultMaterial: 'nano_adhesive',
+    damageOnFail: 10,
+  },
+  short_circuit: {
+    name: '电路短路',
+    description: '内部线路出现异常连接，可能导致功能失效或过载',
+    color: '#f59e0b',
+    icon: 'ZapOff',
+    defaultTool: 'circuit_tester',
+    defaultMaterial: 'conductive_gel',
+    damageOnFail: 12,
+  },
+  loose: {
+    name: '连接松动',
+    description: '焊接点或接口出现松动，导致接触不良和功能异常',
+    color: '#8b5cf6',
+    icon: 'Unlink',
+    defaultTool: 'soldering_iron',
+    defaultMaterial: 'flux',
+    damageOnFail: 8,
+  },
+  contamination: {
+    name: '内部污染',
+    description: '灰尘、液体或微粒侵入零件内部，影响精密部件运作',
+    color: '#3b82f6',
+    icon: 'Droplets',
+    defaultTool: 'ultrasonic_cleaner',
+    defaultMaterial: 'cleaning_solution',
+    damageOnFail: 6,
+  },
+};
+
+export const PART_SECTION_LAYOUTS: Record<PartType, { shape: string; zones: string[] }> = {
+  head: { shape: 'circle', zones: ['光学传感器', '处理器核心', '通讯模块', '防护外壳'] },
+  body: { shape: 'rect', zones: ['主框架', '动力传输', '储能仓', '装甲板'] },
+  arm: { shape: 'arm', zones: ['肩关节', '液压管线', '抓取器', '驱动电机'] },
+  leg: { shape: 'leg', zones: ['髋关节', '避震器', '足部传感器', '推进器'] },
+  core: { shape: 'circle', zones: ['能量转换', '冷却系统', '控制模块', '安全开关'] },
+  tool: { shape: 'rect', zones: ['工作端', '传动机构', '快拆接口', '动力输入'] },
+};

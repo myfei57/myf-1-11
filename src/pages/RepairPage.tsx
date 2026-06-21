@@ -1,14 +1,38 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wrench, AlertTriangle, CheckCircle, XCircle, Clock, Coins, History, Heart, Bot } from 'lucide-react';
+import {
+  Wrench,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Coins,
+  History,
+  Heart,
+  Bot,
+  ChevronRight,
+  Package,
+  Crosshair,
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '../store/useGameStore';
 import { PageContainer } from '../components/PageContainer';
 import { RobotCard } from '../components/RobotCard';
 import { Modal } from '../components/Modal';
 import { StatBar } from '../components/StatBar';
+import { PART_TYPE_NAMES } from '../data/defaultConfig';
 
 export function RepairPage() {
-  const { robots, repairRecords, config, materials, repairRobot } = useGameStore();
+  const navigate = useNavigate();
+  const {
+    robots,
+    repairRecords,
+    config,
+    materials,
+    repairRobot,
+    isSeverelyDamaged,
+    getDamagedParts,
+  } = useGameStore();
   const [selectedRobotId, setSelectedRobotId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [repairResult, setRepairResult] = useState<{
@@ -19,6 +43,12 @@ export function RepairPage() {
   const [isRepairing, setIsRepairing] = useState(false);
 
   const selectedRobot = robots.find((r) => r.id === selectedRobotId);
+  const selectedRobotDamagedParts = selectedRobotId
+    ? getDamagedParts(selectedRobotId)
+    : [];
+  const severelyDamagedParts = selectedRobotDamagedParts.filter((p) =>
+    isSeverelyDamaged(p)
+  );
 
   const getRepairInfo = (robot: typeof robots[0]) => {
     const { repairRules } = config;
@@ -234,6 +264,67 @@ export function RepairPage() {
                         </p>
                       </div>
                     )}
+
+                  {severelyDamagedParts.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-neon-orange/10 border border-neon-orange/50 rounded-xl p-4"
+                    >
+                      <div className="flex items-start gap-3 mb-3">
+                        <Crosshair className="w-5 h-5 text-neon-orange flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="font-bold text-neon-orange">
+                            检测到 {severelyDamagedParts.length} 个严重损坏零件
+                          </p>
+                          <p className="text-xs text-white/60 mt-1">
+                            耐久度低于30%的零件需要先进行显微手术处理病灶，才能进行常规维修
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-2 mb-4">
+                        {severelyDamagedParts.map((part) => (
+                          <div
+                            key={part.id}
+                            className="bg-black/20 rounded-lg p-2 flex items-center justify-between"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <Package className="w-4 h-4 text-neon-orange flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="text-sm text-white font-medium truncate">
+                                  {part.name}
+                                </p>
+                                <p className="text-[10px] text-white/40">
+                                  {PART_TYPE_NAMES[part.type]} · 耐久{' '}
+                                  {part.durability}/{part.maxDurability}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-1.5 bg-background rounded-full overflow-hidden">
+                                <motion.div
+                                  className="h-full bg-neon-red rounded-full"
+                                  style={{
+                                    width: `${(part.durability / part.maxDurability) * 100}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() =>
+                          selectedRobotId && navigate(`/surgery/${selectedRobotId}`)
+                        }
+                        className="w-full py-3 rounded-lg font-display font-bold bg-gradient-to-r from-neon-orange to-neon-red text-white hover:shadow-lg hover:shadow-neon-orange/20 transition-all flex items-center justify-center gap-2 text-sm"
+                      >
+                        <Crosshair className="w-4 h-4" />
+                        进入微型手术台
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </motion.div>
+                  )}
 
                   {getRepairInfo(selectedRobot).durabilityNeeded === 0 && (
                     <div className="bg-neon-green/10 border border-neon-green/30 rounded-xl p-4 flex items-center gap-3">

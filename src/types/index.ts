@@ -4,6 +4,24 @@ export type PartType = 'head' | 'body' | 'arm' | 'leg' | 'core' | 'tool';
 
 export type MissionType = 'transport' | 'cleaning' | 'rescue' | 'combat';
 
+export type LesionType = 'crack' | 'short_circuit' | 'loose' | 'contamination';
+
+export type SurgeryToolType =
+  | 'laser_welder'
+  | 'circuit_tester'
+  | 'soldering_iron'
+  | 'ultrasonic_cleaner'
+  | 'microscope'
+  | 'anti_static_cloth';
+
+export type SurgeryMaterialType =
+  | 'nano_adhesive'
+  | 'conductive_gel'
+  | 'reinforcement_plate'
+  | 'cleaning_solution'
+  | 'flux'
+  | 'insulation_tape';
+
 export interface Part {
   id: string;
   name: string;
@@ -70,6 +88,77 @@ export interface MissionRecord {
   completedAt: number;
 }
 
+export interface Lesion {
+  id: string;
+  type: LesionType;
+  name: string;
+  description: string;
+  severity: number;
+  position: { x: number; y: number };
+  treated: boolean;
+  correctTool: SurgeryToolType;
+  correctMaterial: SurgeryMaterialType;
+  stepOrder: number;
+}
+
+export interface SurgeryTool {
+  type: SurgeryToolType;
+  name: string;
+  description: string;
+  icon: string;
+  targetLesions: LesionType[];
+}
+
+export interface SurgeryMaterial {
+  type: SurgeryMaterialType;
+  name: string;
+  description: string;
+  icon: string;
+  cost: number;
+  targetLesions: LesionType[];
+}
+
+export interface SurgeryStep {
+  step: number;
+  lesionId: string;
+  tool: SurgeryToolType | null;
+  material: SurgeryMaterialType | null;
+  completed: boolean;
+  success: boolean;
+  damageIncrease: number;
+  message: string;
+}
+
+export interface SurgerySession {
+  id: string;
+  robotId: string;
+  partId: string;
+  part: Part;
+  lesions: Lesion[];
+  steps: SurgeryStep[];
+  currentStep: number;
+  totalDamageIncrease: number;
+  completed: boolean;
+  success: boolean;
+  finalRecovery: number;
+  startedAt: number;
+  finishedAt: number | null;
+}
+
+export interface SurgeryRecord {
+  id: string;
+  robotId: string;
+  robotName: string;
+  partName: string;
+  lesionsTreated: number;
+  totalLesions: number;
+  damageIncrease: number;
+  finalRecovery: number;
+  materialCost: number;
+  success: boolean;
+  performedAt: number;
+}
+
 export interface RepairRecord {
   id: string;
   robotId: string;
@@ -118,6 +207,16 @@ export interface RepairRules {
   degradeRate: number;
   maxRepairs: number;
   materialCostPerPoint: number;
+  severeDamageThreshold: number;
+}
+
+export interface MicroSurgeryConfig {
+  lesionSevereDamageChance: number;
+  maxLesionsPerPart: number;
+  minLesionsPerPart: number;
+  wrongOrderDamageMultiplier: number;
+  correctStepRecoveryBonus: number;
+  baseMaterialCost: number;
 }
 
 export interface MissionWeights {
@@ -132,6 +231,7 @@ export interface GameConfig {
   setBonuses: Record<string, SetBonusConfig>;
   overloadRules: OverloadRules;
   repairRules: RepairRules;
+  microSurgery: MicroSurgeryConfig;
   missionWeights: Record<MissionType, MissionWeights>;
   recyclingRates: Record<Rarity, number>;
 }
@@ -143,9 +243,11 @@ export interface GameState {
   materials: number;
   missionRecords: MissionRecord[];
   repairRecords: RepairRecord[];
+  surgeryRecords: SurgeryRecord[];
   assemblyPlans: AssemblyPlan[];
   config: GameConfig;
   selectedParts: Record<PartType, Part | null>;
+  activeSurgery: SurgerySession | null;
 }
 
 export interface GameActions {
@@ -184,6 +286,29 @@ export interface GameActions {
   openBlindBox: (type: Rarity, free?: boolean) => Part[];
   loadFromStorage: () => void;
   resetGame: () => void;
+  addSurgeryRecord: (record: SurgeryRecord) => void;
+  setActiveSurgery: (session: SurgerySession | null) => void;
+  startSurgerySession: (robotId: string, partId: string) => SurgerySession | null;
+  performSurgeryStep: (
+    tool: SurgeryToolType,
+    material: SurgeryMaterialType
+  ) => {
+    success: boolean;
+    stepCompleted: boolean;
+    damageIncrease: number;
+    message: string;
+  };
+  completeSurgerySession: () => {
+    success: boolean;
+    totalRecovery: number;
+    totalDamage: number;
+    materialCost: number;
+  };
+  cancelSurgerySession: () => void;
+  getDamagedParts: (robotId: string) => Part[];
+  isSeverelyDamaged: (part: Part) => boolean;
+  getSurgeryTools: () => SurgeryTool[];
+  getSurgeryMaterials: () => SurgeryMaterial[];
 }
 
 export type Store = GameState & GameActions;

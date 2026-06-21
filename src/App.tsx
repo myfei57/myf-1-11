@@ -7,6 +7,7 @@ import { MissionsPage } from './pages/MissionsPage';
 import { RepairPage } from './pages/RepairPage';
 import { ComparePage } from './pages/ComparePage';
 import { ConfigPage } from './pages/ConfigPage';
+import { MicroSurgeryPage } from './pages/MicroSurgeryPage';
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
             <Route path="/assembly" element={<AssemblyPage />} />
             <Route path="/missions" element={<MissionsPage />} />
             <Route path="/repair" element={<RepairPage />} />
+            <Route path="/surgery/:robotId" element={<MicroSurgeryPage />} />
             <Route path="/compare" element={<ComparePage />} />
             <Route path="/config" element={<ConfigPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
